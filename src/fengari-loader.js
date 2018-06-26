@@ -2,6 +2,8 @@
 
 const loader_utils = require('loader-utils');
 const validateOptions = require('schema-utils');
+const path = require('path');
+const fs = require('fs');
 
 const {
 	luastring_eq,
@@ -39,6 +41,42 @@ const schema = {
 		}
 	}
 };
+
+const exists = function(filename) {
+	try {
+		const s = fs.statSync(filename);
+		return s.isFile() || s.isDirectory() ? s : false;
+	} catch(e) {
+		return false;
+	}
+}
+
+const resolver = function(lua_dependencies, lua_name, resourcePath) {
+	let dir = path.dirname(resourcePath);
+	const ext = path.extname(resourcePath);
+	const dep = lua_dependencies[lua_name];
+
+	const resolve = function(dir, ext, dep) {
+		let split = dep.split(".");
+		let base = path.join(...split);
+
+		// try path + ext
+		let stat = exists(path.resolve(path.join(dir, base + ext)));
+		if (stat !== false && stat.isFile()) {
+			return path.join(dir, base + ext);
+		}
+
+		// try path + init.ext
+		stat = exists(path.resolve(path.join(dir, base, "init" + ext)));
+		if (stat !== false && stat.isFile()) {
+			return path.join(dir, base, "init" + ext);
+		}
+
+		return ""
+	}
+
+	return resolve(dir, ext, dep) || resolve(path.dirname(dir), ext, dep) || dep;
+}
 
 exports.raw = true;
 exports.default = function(source) {
@@ -84,7 +122,7 @@ exports.default = function(source) {
 			'lauxlib.luaL_getsubtable(L, lua.LUA_REGISTRYINDEX, lauxlib.LUA_PRELOAD_TABLE);\n';
 		for (let i=0; i<lua_dependencies_keys.length; i++) {
 			let lua_name = lua_dependencies_keys[i];
-			let require_path = lua_dependencies[lua_name];
+			let require_path = resolver(lua_dependencies, lua_name, this.resourcePath);
 			this.addDependency(require_path);
 			s +=
 				'lua.lua_pushcfunction(L, function(L){push(L, require(' + JSON.stringify(require_path) +')); return 1;});\n' +
