@@ -51,8 +51,7 @@ const exists = function(filename) {
 	}
 }
 
-const resolver = function(lua_dependencies, lua_name, resourcePath) {
-	let dir = path.dirname(resourcePath);
+const resolver = function(lua_dependencies, lua_name, dir, resourcePath) {
 	const ext = path.extname(resourcePath);
 	const dep = lua_dependencies[lua_name];
 
@@ -122,7 +121,7 @@ exports.default = function(source) {
 			'lauxlib.luaL_getsubtable(L, lua.LUA_REGISTRYINDEX, lauxlib.LUA_PRELOAD_TABLE);\n';
 		for (let i=0; i<lua_dependencies_keys.length; i++) {
 			let lua_name = lua_dependencies_keys[i];
-			let require_path = resolver(lua_dependencies, lua_name, this.resourcePath);
+			let require_path = resolver(lua_dependencies, lua_name, this.context, this.resourcePath);
 			this.addDependency(require_path);
 			s +=
 				'lua.lua_pushcfunction(L, function(L){push(L, require(' + JSON.stringify(require_path) +')); return 1;});\n' +
